@@ -1,0 +1,14 @@
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors
+.vscode/
+.idea/
+
+# Node (ileride build aracı eklenirse)
+node_modules/
+dist/
