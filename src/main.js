@@ -1,8 +1,10 @@
 // ─────────────────────────────────────────────────────────────
 // main.js — sahne kurulumu + ana döngü
+// Kamera: OrbitControls (tek parmak/fare = döndür, çift parmak = zoom)
 // ─────────────────────────────────────────────────────────────
 
 import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { CONFIG } from './config.js';
 import { initSensors, updateTilt } from './sensors.js';
 import { PhysicsWorld } from './physics.js';
@@ -18,11 +20,21 @@ document.body.appendChild(renderer.domElement);
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x0b0f1a);
-scene.fog = new THREE.Fog(0x0b0f1a, 18, 34);
+scene.fog = new THREE.Fog(0x0b0f1a, 18, 60);
 
-const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 100);
-camera.position.set(0, CONFIG.CAMERA_HEIGHT, 4);
-camera.lookAt(0, 0, 0);
+const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 200);
+camera.position.set(0, CONFIG.CAMERA_HEIGHT, 6);
+
+// ── OrbitControls: döndürme + pinch zoom ──
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(0, 0, 0);
+controls.enableDamping = true;        // yumuşak hareket
+controls.dampingFactor = 0.08;
+controls.enablePan = false;           // kaydırma kapalı — sahne sabit kalsın
+controls.minDistance = 4;             // en yakın zoom
+controls.maxDistance = 40;            // en uzak zoom (çift parmak zoom out)
+controls.maxPolarAngle = Math.PI * 0.49; // zeminin altına inmeyi engelle
+controls.update();
 
 // ── Işıklar ──
 scene.add(new THREE.AmbientLight(0xffffff, 0.35));
@@ -110,7 +122,7 @@ function animate() {
   requestAnimationFrame(animate);
   const dt = Math.min(clock.getDelta(), 0.1); // sekme önlemi
 
-  // 1) Sensörleri oku (yumuşatılmış)
+  // 1) Sensörleri oku (yumuşatılmış) + HUD güncelle
   const tilt = updateTilt();
 
   // 2) Yerçekimini eğime göre ayarla, fiziği ilerlet
@@ -125,6 +137,9 @@ function animate() {
 
   // 4) Partiküller
   particles.update(dt);
+
+  // 5) Kamera (damping için her kare güncelle)
+  controls.update();
 
   renderer.render(scene, camera);
 }

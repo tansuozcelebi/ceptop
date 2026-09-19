@@ -28,9 +28,21 @@
       border-radius: 8px;
       padding: 8px 10px;
       pointer-events: none;
-      line-height: 1.5;
+      line-height: 1.6;
       z-index: 10;
+      font-variant-numeric: tabular-nums;
+      min-width: 170px;
     }
+    #hud .section {
+      color: #5b7bb4;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      margin-top: 4px;
+    }
+    #hud .section:first-child { margin-top: 0; }
+    #hud .row { display: flex; justify-content: space-between; gap: 12px; }
+    #hud .val { color: #cfe1ff; }
 
     #overlay {
       position: fixed; inset: 0;
@@ -43,7 +55,7 @@
     }
     #overlay.hidden { display: none; }
     #overlay h1 { color: #fff; font-size: 28px; }
-    #overlay p { color: #9fb3d9; font-size: 14px; text-align: center; max-width: 300px; }
+    #overlay p { color: #9fb3d9; font-size: 14px; text-align: center; max-width: 320px; line-height: 1.5; }
     #enableSensors {
       background: #3b82f6; color: #fff;
       border: none; border-radius: 12px;
@@ -59,6 +71,7 @@
   {
     "imports": {
       "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/",
       "cannon-es": "https://cdn.jsdelivr.net/npm/cannon-es@0.20.0/dist/cannon-es.js"
     }
   }
@@ -66,14 +79,23 @@
 </head>
 <body>
   <div id="hud">
-    <div>eğim X: <span id="tiltX">0.0</span>°</div>
-    <div>eğim Z: <span id="tiltZ">0.0</span>°</div>
-    <div>kaynak: <span id="src">—</span></div>
+    <div class="section">Açılar (°)</div>
+    <div class="row"><span>alpha (pusula)</span><span class="val" id="angA">0.0</span></div>
+    <div class="row"><span>beta (ön/arka)</span><span class="val" id="angB">0.0</span></div>
+    <div class="row"><span>gamma (sol/sağ)</span><span class="val" id="angG">0.0</span></div>
+    <div class="section">İvme (m/s²)</div>
+    <div class="row"><span>X</span><span class="val" id="accX">0.00</span></div>
+    <div class="row"><span>Y</span><span class="val" id="accY">0.00</span></div>
+    <div class="row"><span>Z</span><span class="val" id="accZ">0.00</span></div>
+    <div class="section">Eğim → Yerçekimi</div>
+    <div class="row"><span>tilt X</span><span class="val" id="tiltX">0.0</span></div>
+    <div class="row"><span>tilt Z</span><span class="val" id="tiltZ">0.0</span></div>
+    <div class="row"><span>kaynak</span><span class="val" id="src">—</span></div>
   </div>
 
   <div id="overlay">
     <h1>🎱 ceptop</h1>
-    <p>Telefonu eğerek topu hareket ettir. iOS'ta sensör izni butona basarak verilir.</p>
+    <p>Telefonu eğerek topu hareket ettir.<br>Tek parmak: kamera döndürme · Çift parmak: zoom<br>iOS'ta sensör izni butona basarak verilir.</p>
     <button id="enableSensors">Sensörleri Etkinleştir</button>
   </div>
 

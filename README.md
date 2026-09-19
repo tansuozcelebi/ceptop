@@ -10,7 +10,9 @@ Telefonu eğdiğinizde, ekrana paralel düzlem üzerindeki top(lar) gerçek fizi
 - ⚽ **Tam fizik motoru** — cannon-es ile gerçekçi çarpışma, sekme ve sürtünme
 - 🔢 **Çoklu top desteği** — `src/config.js` içindeki `BALL_COUNT` ile top sayısını değiştirin
 - ✨ **Partikül efektleri** — sert çarpışmalarda kıvılcım partikülleri (havuza dayalı, performans dostu)
-- 🖱️ **Masaüstü fallback** — sensörü olmayan cihazlarda fare/touch sürükleme ile eğim simülasyonu
+- 🎥 **Orbit kamera** — tek parmak/fare ile döndürme, çift parmak pinch ile zoom
+- 📊 **Canlı HUD** — alpha/beta/gamma açıları + ivmeölçer (X/Y/Z) değerleri ekranda
+- 🖱️ **Masaüstü fallback** — sensörü olmayan cihazlarda ok tuşları / WASD ile eğim simülasyonu
 
 ## Çalıştırma
 
@@ -28,17 +30,17 @@ Ardından telefondan `http://<bilgisayar-ip>:8000` adresine gidin.
 
 > ⚠️ **HTTPS notu:** iOS 13+ ve modern Android tarayıcıları sensör verisine yalnızca **güvenli bağlamda** (HTTPS veya localhost) izin verir. Telefonda test için [ngrok](https://ngrok.com), GitHub Pages veya benzeri HTTPS'li bir yayın önerilir.
 >
-> 📱 **iOS notu:** Sayfa açıldığında çıkan "Sensörleri Etkinleştir" butonuna basın — iOS `DeviceOrientationEvent.requestPermission()` gerektirir.
+> 📱 **iOS notu:** Sayfa açıldığında çıkan "Sensörleri Etkinleştir" butonuna basın — iOS `DeviceOrientationEvent.requestPermission()` ve `DeviceMotionEvent.requestPermission()` gerektirir.
 
 ## Proje Yapısı
 
 ```
 ceptop/
-├── index.html        # Giriş noktası, import map, UI katmanı
+├── index.html        # Giriş noktası, import map, HUD + UI katmanı
 ├── src/
 │   ├── config.js     # Tüm ayarlar (top sayısı, fizik sabitleri, partikül)
-│   ├── main.js       # Uygulama döngüsü, sahne kurulumu
-│   ├── sensors.js    # DeviceOrientation + masaüstü fallback
+│   ├── main.js       # Uygulama döngüsü, sahne kurulumu, OrbitControls
+│   ├── sensors.js    # DeviceOrientation + DeviceMotion + klavye fallback
 │   ├── physics.js    # cannon-es dünyası, toplar, duvarlar, çarpışma olayları
 │   └── particles.js  # Partikül havuzu (kıvılcım efektleri)
 └── README.md
@@ -48,6 +50,8 @@ ceptop/
 
 - [x] Tek/çoklu top + jiroskop kontrolü
 - [x] Temel partikül efektleri
+- [x] Orbit kamera + pinch zoom
+- [x] Canlı sensör HUD'ı (açılar + ivme)
 - [ ] Seviye/labirent sistemi
 - [ ] Ses efektleri (çarpışma şiddetine göre)
 - [ ] Skor ve hedef delikler
@@ -55,6 +59,6 @@ ceptop/
 
 ## Teknolojiler
 
-- [Three.js](https://threejs.org/) `0.160.0`
+- [Three.js](https://threejs.org/) `0.160.0` (OrbitControls dahil)
 - [cannon-es](https://github.com/pmndrs/cannon-es) `0.20.0`
 - Build aracı yok — saf ES Modules + CDN import map

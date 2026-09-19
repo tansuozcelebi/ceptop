@@ -1,8 +1,10 @@
 // ─────────────────────────────────────────────────────────────
-// sensors.js — DeviceOrientation (jiroskop/eğim) + masaüstü fallback
-// Çıktı: normalize eğim açıları { x, z } (radyan, -π/2 .. π/2)
-//   x > 0 → telefon sağa eğik → top sağa gitmeli
-//   z > 0 → telefon alt tarafı aşağı eğik → top "aşağı" gitmeli
+// sensors.js — DeviceOrientation (açılar) + DeviceMotion (ivme)
+// + masaüstü fallback (ok tuşları ile eğim simülasyonu)
+//
+// Çıktılar:
+//   updateTilt() → yumuşatılmış eğim { x, z } (radyan)
+//   HUD'a canlı açı (alpha/beta/gamma) ve ivme (X/Y/Z) yazar
 // ─────────────────────────────────────────────────────────────
 
 import { CONFIG } from './config.js';
@@ -11,60 +13,95 @@ const tilt = { x: 0, z: 0 };          // hedef (ham) eğim
 const smoothed = { x: 0, z: 0 };      // yumuşatılmış eğim (fizik bunu kullanır)
 let source = '—';
 
-const hudX = document.getElementById('tiltX');
-const hudZ = document.getElementById('tiltZ');
-const hudSrc = document.getElementById('src');
+// Ham sensör verileri (HUD için)
+const raw = { alpha: 0, beta: 0, gamma: 0, accX: 0, accY: 0, accZ: 0 };
+
+// HUD elemanları
+const el = {
+  angA: document.getElementById('angA'),
+  angB: document.getElementById('angB'),
+  angG: document.getElementById('angG'),
+  accX: document.getElementById('accX'),
+  accY: document.getElementById('accY'),
+  accZ: document.getElementById('accZ'),
+  tiltX: document.getElementById('tiltX'),
+  tiltZ: document.getElementById('tiltZ'),
+  src: document.getElementById('src'),
+};
 
 function applyDeadzone(deg) {
   return Math.abs(deg) < CONFIG.TILT_DEADZONE_DEG ? 0 : deg;
 }
 
+// ── Jiroskop / yön sensörü ──
 function onDeviceOrientation(e) {
   if (e.gamma === null || e.beta === null) return;
-  // gamma: sol-sağ eğim (-90..90), beta: ön-arka eğim (-180..180)
-  tilt.x = (applyDeadzone(e.gamma) * Math.PI) / 180;
-  tilt.z = (applyDeadzone(e.beta) * Math.PI) / 180;
+  // alpha: pusula yönü (0..360), beta: ön-arka (-180..180), gamma: sol-sağ (-90..90)
+  raw.alpha = e.alpha ?? 0;
+  raw.beta = e.beta ?? 0;
+  raw.gamma = e.gamma ?? 0;
+
+  tilt.x = (applyDeadzone(raw.gamma) * Math.PI) / 180;
+  tilt.z = (applyDeadzone(raw.beta) * Math.PI) / 180;
   source = 'jiroskop';
 }
 
-// ── Masaüstü fallback: fare/dokunma sürükleme ile eğim simülasyonu ──
-function enablePointerFallback() {
-  let dragging = false;
-  const maxDrag = 200; // px — tam eğim için gereken sürükleme
-
-  const start = () => { dragging = true; };
-  const end = () => { dragging = false; tilt.x = 0; tilt.z = 0; };
-  const move = (e) => {
-    if (!dragging) return;
-    const p = e.touches ? e.touches[0] : e;
-    const dx = (p.clientX - window.innerWidth / 2) / maxDrag;
-    const dy = (p.clientY - window.innerHeight / 2) / maxDrag;
-    tilt.x = Math.max(-1, Math.min(1, dx)) * (Math.PI / 4);
-    tilt.z = Math.max(-1, Math.min(1, dy)) * (Math.PI / 4);
-    source = 'sürükleme';
-  };
-
-  window.addEventListener('mousedown', start);
-  window.addEventListener('mouseup', end);
-  window.addEventListener('mousemove', move);
-  window.addEventListener('touchstart', start, { passive: true });
-  window.addEventListener('touchend', end);
-  window.addEventListener('touchmove', move, { passive: true });
+// ── İvmeölçer ──
+function onDeviceMotion(e) {
+  // Yerçekimi dahil ivme (her cihazda mevcut olan budur)
+  const a = e.accelerationIncludingGravity || e.acceleration;
+  if (!a) return;
+  raw.accX = a.x ?? 0;
+  raw.accY = a.y ?? 0;
+  raw.accZ = a.z ?? 0;
 }
 
-// ── Kurulum: iOS izni dahil ──
+// ── Masaüstü fallback: ok tuşları / WASD ile eğim simülasyonu ──
+// (Kamera artık OrbitControls ile fareye bağlı, sürükleme çakışmasın diye kaldırıldı)
+function enableKeyboardFallback() {
+  const MAX = Math.PI / 4; // 45°
+  const pressed = new Set();
+
+  const update = () => {
+    const l = pressed.has('ArrowLeft') || pressed.has('a');
+    const r = pressed.has('ArrowRight') || pressed.has('d');
+    const u = pressed.has('ArrowUp') || pressed.has('w');
+    const d = pressed.has('ArrowDown') || pressed.has('s');
+    tilt.x = (r ? MAX : 0) - (l ? MAX : 0);
+    tilt.z = (d ? MAX : 0) - (u ? MAX : 0);
+    if (l || r || u || d) source = 'klavye';
+  };
+
+  window.addEventListener('keydown', (e) => {
+    const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+    pressed.add(k);
+    update();
+  });
+  window.addEventListener('keyup', (e) => {
+    const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+    pressed.delete(k);
+    update();
+  });
+}
+
+// ── Kurulum: iOS izni (orientation + motion birlikte) ──
 export async function initSensors() {
   const overlay = document.getElementById('overlay');
   const btn = document.getElementById('enableSensors');
 
-  const needsPermission =
+  const needsOrientationPermission =
     typeof DeviceOrientationEvent !== 'undefined' &&
     typeof DeviceOrientationEvent.requestPermission === 'function';
+  const needsMotionPermission =
+    typeof DeviceMotionEvent !== 'undefined' &&
+    typeof DeviceMotionEvent.requestPermission === 'function';
+  const needsPermission = needsOrientationPermission || needsMotionPermission;
 
   return new Promise((resolve) => {
     const begin = () => {
       window.addEventListener('deviceorientation', onDeviceOrientation);
-      enablePointerFallback();
+      window.addEventListener('devicemotion', onDeviceMotion);
+      enableKeyboardFallback();
       overlay.classList.add('hidden');
       resolve();
     };
@@ -72,12 +109,16 @@ export async function initSensors() {
     btn.addEventListener('click', async () => {
       if (needsPermission) {
         try {
-          const state = await DeviceOrientationEvent.requestPermission();
-          if (state !== 'granted') {
-            btn.textContent = 'İzin reddedildi — sürükleme modu';
+          if (needsOrientationPermission) {
+            const s1 = await DeviceOrientationEvent.requestPermission();
+            if (s1 !== 'granted') btn.textContent = 'Yön izni reddedildi';
+          }
+          if (needsMotionPermission) {
+            const s2 = await DeviceMotionEvent.requestPermission();
+            if (s2 !== 'granted') btn.textContent = 'Hareket izni reddedildi';
           }
         } catch {
-          btn.textContent = 'Sensör yok — sürükleme modu';
+          btn.textContent = 'Sensör yok — klavye modu';
         }
       }
       begin();
@@ -85,7 +126,7 @@ export async function initSensors() {
 
     // Masaüstünde izin gerekmez: buton metnini değiştir
     if (!needsPermission && !('ontouchstart' in window)) {
-      btn.textContent = 'Başla (sürükleme modu)';
+      btn.textContent = 'Başla (ok tuşları ile eğim)';
     }
   });
 }
@@ -96,9 +137,20 @@ export function updateTilt() {
   smoothed.x += (tilt.x - smoothed.x) * s;
   smoothed.z += (tilt.z - smoothed.z) * s;
 
-  hudX.textContent = ((smoothed.x * 180) / Math.PI).toFixed(1);
-  hudZ.textContent = ((smoothed.z * 180) / Math.PI).toFixed(1);
-  hudSrc.textContent = source;
+  // HUD: açılar
+  el.angA.textContent = raw.alpha.toFixed(1);
+  el.angB.textContent = raw.beta.toFixed(1);
+  el.angG.textContent = raw.gamma.toFixed(1);
+
+  // HUD: ivme
+  el.accX.textContent = raw.accX.toFixed(2);
+  el.accY.textContent = raw.accY.toFixed(2);
+  el.accZ.textContent = raw.accZ.toFixed(2);
+
+  // HUD: uygulanan eğim
+  el.tiltX.textContent = ((smoothed.x * 180) / Math.PI).toFixed(1);
+  el.tiltZ.textContent = ((smoothed.z * 180) / Math.PI).toFixed(1);
+  el.src.textContent = source;
 
   return smoothed;
 }
